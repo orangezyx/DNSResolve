@@ -26,20 +26,17 @@ namespace DNS
         private static UdpClient UdpRecv;
 
         /// <summary>
-        /// 开关：在监听UDP报文阶段为true，否则为false
-        /// </summary>
-        static bool IsUdpcRecvStart = false;
-        /// <summary>
         /// 线程：不断监听UDP报文
         /// </summary>
         static Thread thrRecv;
-        static string DNSServer = null;
+
+        static CountdownEvent latch = new CountdownEvent(1);
 
         static void Main(string[] args)
         {
             while (true)
             {
-                Console.WriteLine("请输入要解析的域名，若输入exit则结束本程序：");
+                Console.Write("请输入要解析的域名，若输入exit则结束本程序：");
                 string Address = Console.ReadLine();
                 if (Address == "exit")
                 {
@@ -86,7 +83,7 @@ namespace DNS
                     UdpRecv = new UdpClient(localIpepRcv);
                     thrRecv = new Thread(ReceiveMessage);
                     thrRecv.Start();
-                    IsUdpcRecvStart = true;
+                    latch.Wait();
                     //---解析结束---
                     break;
                 }
@@ -98,7 +95,7 @@ namespace DNS
         /// <param name="obj"></param>
         private static void ReceiveMessage(object obj)
         {
-            IPEndPoint remoteIpep = new IPEndPoint(IPAddress.Any, 0);
+            IPEndPoint remoteIpep = new IPEndPoint(IPAddress.Any, 12345);
             while (true)
             {
                 try
@@ -108,15 +105,18 @@ namespace DNS
                     string pack = "";
                     foreach (byte tmp in bytRecv)
                     {
-                        pack += tmp.ToString()+" ";
+                        pack += tmp.ToString() + " ";
                     }
                     Console.WriteLine(pack); //输出接收的消息
                     //---------------
-                    Console.WriteLine("本次解析已经完成，请按任意键继续...");
-                    Console.ReadKey();
+                    UdpRecv.Close();
+                    Console.Write("本次解析已经完成，请按任意键继续...");
+                    Console.Read();
+                    break;
                 }
                 catch (Exception ex)
                 {
+                    Console.WriteLine("Error: " + ex.ToString());
                     break;
                 }
             }
@@ -132,7 +132,7 @@ namespace DNS
                 pack = CombineBytes(pack,new byte[] { Convert.ToByte(Hosts[i].Length) });
                 pack = CombineBytes(pack, Encoding.ASCII.GetBytes(Hosts[i]));
             }
-            pack = CombineBytes(pack,new byte[]{0,0,1,0,1});
+            pack = CombineBytes(pack, new byte[] { 0, 0, 1, 0, 1 });
             return pack;
         }
 
