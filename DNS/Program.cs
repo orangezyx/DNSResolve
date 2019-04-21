@@ -30,8 +30,6 @@ namespace DNS
         /// </summary>
         static Thread thrRecv;
 
-        static CountdownEvent latch = new CountdownEvent(1);
-
         static void Main(string[] args)
         {
             while (true)
@@ -83,7 +81,6 @@ namespace DNS
                     UdpRecv = new UdpClient(localIpepRcv);
                     thrRecv = new Thread(ReceiveMessage);
                     thrRecv.Start();
-                    latch.Wait();
                     //---解析结束---
                     break;
                 }
@@ -95,8 +92,10 @@ namespace DNS
         /// <param name="obj"></param>
         private static void ReceiveMessage(object obj)
         {
+            bool isFinished = false;
+
             IPEndPoint remoteIpep = new IPEndPoint(IPAddress.Any, 12345);
-            while (true)
+            while (!isFinished)
             {
                 try
                 {
@@ -110,9 +109,9 @@ namespace DNS
                     Console.WriteLine(pack); //输出接收的消息
                     //---------------
                     UdpRecv.Close();
+                    isFinished = true;
                     Console.Write("本次解析已经完成，请按任意键继续...");
                     Console.Read();
-                    break;
                 }
                 catch (Exception ex)
                 {
