@@ -10,6 +10,7 @@ using System.Net;
 using System.Net.Sockets;//Socket
 
 using System.Threading;//多线程
+using System.Net.NetworkInformation;
 
 namespace DNS
 {
@@ -29,6 +30,8 @@ namespace DNS
         /// 线程：不断监听UDP报文
         /// </summary>
         static Thread thrRecv;
+
+        static CountdownEvent latch = new CountdownEvent(1);
 
         static void Main(string[] args)
         {
@@ -56,14 +59,12 @@ namespace DNS
 
                 while (true)
                 {
-                    Console.Write("请输入DNS服务器地址：");
+                    Console.Write("请输入DNS服务器地址（为空则默认为114DNS）：");
                     string DNSInput = Console.ReadLine();
                     if (string.IsNullOrWhiteSpace(DNSInput))
                     {
-                        Console.WriteLine("请先输入内容。");
-                        continue;
+                        DNSInput = "114.114.114.114";
                     }
-
                     if (!Regex.IsMatch(DNSInput, @"((25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d)))\.){3}(25[0-5]|2[0-4]\d|((1\d{2})|([1-9]?\d)))"))
                     {
                         Console.WriteLine("输入的IP地址有误。");
@@ -71,6 +72,7 @@ namespace DNS
                     }
 
                     //---解析开始---
+                    Console.WriteLine("开始解析...");
                     UdpSend = new UdpClient(12345);
                     IPEndPoint remoteIpep = new IPEndPoint(IPAddress.Parse(DNSInput), 53); // 发送到的IP地址和端口号
                     byte[] DNSData = GenerateDNSPack(Address);
@@ -81,6 +83,9 @@ namespace DNS
                     UdpRecv = new UdpClient(localIpepRcv);
                     thrRecv = new Thread(ReceiveMessage);
                     thrRecv.Start();
+                    latch.Wait();
+                    thrRecv.Abort();
+                    latch = new CountdownEvent(1);
                     //---解析结束---
                     break;
                 }
@@ -92,6 +97,9 @@ namespace DNS
         /// <param name="obj"></param>
         private static void ReceiveMessage(object obj)
         {
+            System.Diagnostics.Stopwatch stopwatch = new System.Diagnostics.Stopwatch();
+            stopwatch.Start();//开始计时
+
             bool isFinished = false;
 
             IPEndPoint remoteIpep = new IPEndPoint(IPAddress.Any, 12345);
@@ -110,8 +118,11 @@ namespace DNS
                     //---------------
                     UdpRecv.Close();
                     isFinished = true;
-                    Console.Write("本次解析已经完成，请按任意键继续...");
+                    stopwatch.Stop();
+                    TimeSpan timeSpan = stopwatch.Elapsed;
+                    Console.Write("本次解析已经完成，耗时{0}ms，请按任意键继续...", timeSpan.TotalMilliseconds);
                     Console.Read();
+                    latch.Signal();
                 }
                 catch (Exception ex)
                 {
@@ -137,10 +148,19 @@ namespace DNS
 
         private static byte[] CombineBytes(byte[] source,byte[] newbytes)
         {
+            /*
             byte[] c = new byte[source.Length + newbytes.Length];
             source.CopyTo(c, 0);
             newbytes.CopyTo(c, source.Length);
             return c;
+            */
+
+            List<byte> bytes = new List<byte>(source);
+            bytes.AddRange(newbytes);
+            return bytes.ToArray();//用List合并数组更高效
+            // 0 0 129 128 0 1 0 2 0 0 0 0 5 98 97 105 100 117 3 99 111 109 0 0 1 
+            // 0 1 192 12 0 1 0 1 0 0 1 39 0 4 220 181 57 216 192 12 0 1 0 1 0 0 1 39 0 4 123 125 114 144
+            // baidu.com 的应答报文
         }
     }
 }
