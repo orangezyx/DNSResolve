@@ -108,14 +108,37 @@ namespace DNS
                 try
                 {
                     byte[] bytRecv = UdpRecv.Receive(ref remoteIpep);
-                    //---------------
+                    /*//---------------
                     string pack = "";
                     foreach (byte tmp in bytRecv)
                     {
                         pack += tmp.ToString() + " ";
                     }
                     Console.WriteLine(pack); //输出接收的消息
-                    //---------------
+                    //---------------*/
+                    int sum = 0;
+                    for (int i = 0; i < bytRecv.Length; i++)
+                    {
+                        if (bytRecv[i]== 4)
+                        {
+                            sum++;
+                            string outputString = "#" + sum+" ";
+                            for (int b = 0; b < 4; b++)
+                            {
+                                if (b !=3)
+                                {
+                                    outputString += bytRecv[i + b + 1] + ".";
+                                }
+                                else
+                                {
+                                    outputString += bytRecv[i + b + 1];
+                                }
+                            }
+                            Console.WriteLine(outputString);
+                        }
+                    }
+
+
                     UdpRecv.Close();
                     isFinished = true;
                     stopwatch.Stop();
@@ -133,6 +156,11 @@ namespace DNS
 
         }
 
+        /// <summary>
+        /// Generates the DNS Pack.
+        /// </summary>
+        /// <returns>The DNS UDP Pack.</returns>
+        /// <param name="HostName">Host name.</param>
         private static byte[] GenerateDNSPack(string HostName)
         {
             byte[] pack = new byte[] { 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0 };
@@ -152,7 +180,7 @@ namespace DNS
             byte[] c = new byte[source.Length + newbytes.Length];
             source.CopyTo(c, 0);
             newbytes.CopyTo(c, source.Length);
-            return c;
+            return c;  数组的方法也可以合并，但是用list更高效
             */
 
             List<byte> bytes = new List<byte>(source);
